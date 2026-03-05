@@ -9,7 +9,7 @@ namespace Assets.Code.Services
 	{
         private static AbstractService Instance { get; set; }
 
-        protected const string BaseUrl = "https://localhost:7222";
+        protected const string BaseUrl = "https://avansict2247983.azurewebsites.net/";
 
         private void Awake()
         {
@@ -49,7 +49,7 @@ namespace Assets.Code.Services
         {
             var authToken = PlayerPrefs.GetString("AccessToken", "");
             if (!string.IsNullOrWhiteSpace(authToken))
-                req.SetRequestHeader("Authorization", authToken);
+                req.SetRequestHeader("Authorization", $"Bearer {authToken}");
         }
 
         private class BypassCertificateHandler : CertificateHandler
