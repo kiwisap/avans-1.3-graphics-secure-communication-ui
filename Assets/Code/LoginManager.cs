@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class LoginManager : MonoBehaviour
 {
@@ -61,12 +62,14 @@ public class LoginManager : MonoBehaviour
         }
 
         ShowFeedback($"Logging in as {username}...");
-        bool success = await authService.Login(username, password);
+        bool success = await authService.LoginAsync(username, password);
         
         if (success)
         {
             ShowFeedback("Login successful!");
-            // Proceed to next scene or enable game
+
+            // Load environment selector scene
+            await SceneManager.LoadSceneAsync("EnvironmentSelectorScene", LoadSceneMode.Single);
         }
         else
         {
@@ -93,7 +96,7 @@ public class LoginManager : MonoBehaviour
         }
 
         ShowFeedback($"Registering user {username}...");
-        bool success = await authService.Register(username, password);
+        bool success = await authService.RegisterAsync(username, password);
 
         if (success)
         {
