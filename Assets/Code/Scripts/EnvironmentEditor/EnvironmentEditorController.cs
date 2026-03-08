@@ -1,5 +1,7 @@
-﻿using UnityEngine;
+﻿using Assets.Code.Models;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class EnvironmentEditorController : MonoBehaviour
 {
@@ -16,10 +18,26 @@ public class EnvironmentEditorController : MonoBehaviour
     private bool isDragging = false;
     private Vector2 dragOffset;
 
+    private float worldScale;
+
+    private Environment2DDto currentEnvironment;
+
     void Start()
     {
         cam = Camera.main;
         cameraController = cam.GetComponent<CameraController>();
+
+        currentEnvironment = new Environment2DDto
+        {
+            Id = PlayerPrefs.GetInt("Environment_Id", 0),
+            Name = PlayerPrefs.GetString("Environment_Name", "New Environment"),
+            MaxHeight = PlayerPrefs.GetInt("Environment_MaxHeight", 20),
+            MaxLength = PlayerPrefs.GetInt("Environment_MaxLength", 10)
+        };
+
+        worldScale = 3f / currentEnvironment.MaxLength;
+
+        StartCoroutine(SetupBoundaryNextFrame());
     }
 
     void Update()
@@ -67,7 +85,13 @@ public class EnvironmentEditorController : MonoBehaviour
             // Drag selected object
             if (isDragging && selectedObject != null)
             {
-                selectedObject.transform.position = mouseWorld + dragOffset;
+                float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
+                float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
+                Vector2 center = cam.transform.position;
+                Vector2 newPos = mouseWorld + dragOffset;
+                newPos.x = Mathf.Clamp(newPos.x, center.x - halfW, center.x + halfW);
+                newPos.y = Mathf.Clamp(newPos.y, center.y - halfH, center.y + halfH);
+                selectedObject.transform.position = newPos;
 
                 if (Input.GetMouseButtonUp(0))
                 {
@@ -112,12 +136,22 @@ public class EnvironmentEditorController : MonoBehaviour
                 float scroll = Input.GetAxis("Mouse ScrollWheel");
                 if (scroll != 0f)
                 {
+                    if (cameraController != null) cameraController.blockScroll = true;
+
                     float scaleDelta = scroll * 0.5f;
                     Vector3 s = selectedObject.transform.localScale;
                     float newX = Mathf.Clamp(Mathf.Abs(s.x) + scaleDelta, 0.05f, 0.5f) * Mathf.Sign(s.x);
                     float newY = Mathf.Clamp(s.y + scaleDelta, 0.05f, 0.5f);
                     selectedObject.transform.localScale = new Vector3(newX, newY, 1f);
                 }
+                else
+                {
+                    if (cameraController != null) cameraController.blockScroll = false;
+                }
+            }
+            else
+            {
+                if (cameraController != null) cameraController.blockScroll = false;
             }
         }
     }
@@ -139,6 +173,12 @@ public class EnvironmentEditorController : MonoBehaviour
 
     void PlaceObject(Vector2 position)
     {
+        float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
+        float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
+        Vector2 center = cam.transform.position;
+        position.x = Mathf.Clamp(position.x, center.x - halfW, center.x + halfW);
+        position.y = Mathf.Clamp(position.y, center.y - halfH, center.y + halfH);
+
         Sprite spriteToBePlaced = selectedSprite;
 
         GameObject obj = new GameObject(spriteToBePlaced.name);
@@ -163,7 +203,7 @@ public class EnvironmentEditorController : MonoBehaviour
         if (selectedObject != null)
             SetObjectHighlight(selectedObject, false);
 
-        Collider2D hit = Physics2D.OverlapPoint(position);
+        Collider2D hit = Physics2D.OverlapCircle(position, 0.05f);
         if (hit != null && hit.GetComponent<PlaceableObject>() != null)
         {
             selectedObject = hit.gameObject;
@@ -194,6 +234,63 @@ public class EnvironmentEditorController : MonoBehaviour
     {
         return UnityEngine.EventSystems.EventSystem.current != null &&
                UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+    }
+
+
+    IEnumerator SetupBoundaryNextFrame()
+    {
+        yield return null; // Wait one frame so camera is fully initialized
+        SetupBoundary();
+    }
+
+    void SetupBoundary()
+    {
+        float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
+        float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
+        Vector2 center = cam.transform.position;
+
+        CreateBorderLine("Border_Bottom",
+            new Vector2(center.x - halfW, center.y - halfH),
+            new Vector2(center.x + halfW, center.y - halfH));
+        CreateBorderLine("Border_Top",
+            new Vector2(center.x - halfW, center.y + halfH),
+            new Vector2(center.x + halfW, center.y + halfH));
+        CreateBorderLine("Border_Left",
+            new Vector2(center.x - halfW, center.y - halfH),
+            new Vector2(center.x - halfW, center.y + halfH));
+        CreateBorderLine("Border_Right",
+            new Vector2(center.x + halfW, center.y - halfH),
+            new Vector2(center.x + halfW, center.y + halfH));
+    }
+
+    void CreateBorderLine(string name, Vector2 start, Vector2 end)
+    {
+        GameObject obj = new GameObject(name);
+
+        // Use a thin quad scaled to form a line instead of LineRenderer
+        SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+        sr.sprite = CreateWhiteSprite();
+        sr.color = Color.red;
+        sr.sortingOrder = 99;
+
+        // Position at midpoint between start and end
+        Vector2 mid = (start + end) / 2f;
+        obj.transform.position = new Vector3(mid.x, mid.y, 0f);
+
+        // Scale to match the line length and a fixed thickness
+        float length = Vector2.Distance(start, end);
+        bool isHorizontal = Mathf.Abs(end.y - start.y) < 0.01f;
+        obj.transform.localScale = isHorizontal
+            ? new Vector3(length, 0.02f, 1f)
+            : new Vector3(0.02f, length, 1f);
+    }
+
+    Sprite CreateWhiteSprite()
+    {
+        Texture2D tex = new Texture2D(1, 1);
+        tex.SetPixel(0, 0, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
     }
 
     public void RotateSelected()

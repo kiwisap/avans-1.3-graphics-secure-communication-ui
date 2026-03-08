@@ -31,9 +31,6 @@ namespace Assets.Code
         [Header("Feedback")]
         public TMP_Text feedbackText;
 
-        [Header("Environment Open")]
-        public GameObject environmentPrefabToLoad;
-
         private Environment2DService service;
 
         private readonly List<Environment2DDto> _environments = new();
@@ -134,16 +131,14 @@ namespace Assets.Code
             }
         }
 
-        private void OpenEnvironment(Environment2DDto env)
+        private async void OpenEnvironment(Environment2DDto env)
         {
-            if (environmentPrefabToLoad == null)
-            {
-                feedbackText.text = "Geen environmentPrefabToLoad ingesteld.";
-                return;
-            }
+            PlayerPrefs.SetInt("Environment_Id", env.Id);
+            PlayerPrefs.SetString("Environment_Name", env.Name);
+            PlayerPrefs.SetInt("Environment_MaxHeight", env.MaxHeight);
+            PlayerPrefs.SetInt("Environment_MaxLength", env.MaxLength);
 
-            Instantiate(environmentPrefabToLoad);
-            feedbackText.text = $"Geopend: {env.Name}";
+            await SceneManager.LoadSceneAsync("EnvironmentEditorScene", LoadSceneMode.Single);
         }
 
         private void AskDeleteEnvironment(Environment2DDto env)
