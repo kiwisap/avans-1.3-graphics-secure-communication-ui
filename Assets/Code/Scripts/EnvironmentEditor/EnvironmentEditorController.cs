@@ -2,32 +2,39 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 namespace Assets.Code.Scripts.EnvironmentEditor
 {
     public class EnvironmentEditorController : MonoBehaviour
     {
-        [Header("Camera")]
+        [Header("References")]
         public Camera cam;
-        private CameraController cameraController;
-
         public ObjectPalette palette;
         public EnvironmentSaveLoad saveLoad;
+
+        [Header("Settings")]
+        public float defaultScale = 0.1f;
+        public float scrollSensitivity = 0.5f;
+        public float minScale = 0.05f;
+        public float maxScale = 0.5f;
+
+        private CameraController cameraController;
+        private Environment2DDto currentEnvironment;
+        private float worldScale;
 
         private Sprite selectedSprite;
         private int selectedPrefabId;
         private GameObject previewObject;
         private List<GameObject> placedObjects = new List<GameObject>();
-        private GameObject selectedObject;
 
-        private bool justSelected = false;
+        private GameObject selectedObject;
         private bool isDragging = false;
         private Vector2 dragOffset;
+        private bool justSelected = false;
 
-        private float worldScale;
-
-        private Environment2DDto currentEnvironment;
+        // Lifecycle
 
         void Start()
         {
@@ -47,204 +54,149 @@ namespace Assets.Code.Scripts.EnvironmentEditor
             StartCoroutine(InitializeAsync());
         }
 
-        IEnumerator InitializeAsync()
-        {
-            // Wait two frames for camera to fully initialize
-            yield return null;
-            yield return null;
-
-            SetupBoundary();
-
-            // Load objects from API
-            var loadTask = saveLoad.LoadEnvironmentAsync(currentEnvironment.Id);
-            yield return new WaitUntil(() => loadTask.IsCompleted);
-
-            foreach (var dto in loadTask.Result)
-            {
-                Sprite sprite = palette.GetSpriteById(dto.PrefabId);
-                if (sprite == null) continue;
-
-                GameObject obj = new GameObject(sprite.name);
-                Vector2 worldPos = EnvironmentToWorld(new Vector2(dto.PositionX, dto.PositionY));
-                obj.transform.position = new Vector3(worldPos.x, worldPos.y, 0f);
-                obj.transform.localScale = new Vector3(dto.ScaleX, dto.ScaleY, 1f);
-                obj.transform.eulerAngles = new Vector3(0f, 0f, dto.RotationZ);
-
-                SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
-                sr.sprite = sprite;
-                sr.sortingOrder = dto.SortingLayer;
-
-                BoxCollider2D col = obj.AddComponent<BoxCollider2D>();
-                col.size = sprite.bounds.size;
-
-                PlaceableObject po = obj.AddComponent<PlaceableObject>();
-                po.objectId = sprite.name;
-                po.prefabId = dto.PrefabId;
-
-                placedObjects.Add(obj);
-            }
-
-            // One extra frame so all colliders are ready
-            yield return null;
-
-            Debug.Log($"{loadTask.Result.Count} objecten geladen.");
-        }
-
         void Update()
         {
             Vector2 mouseWorld = cam.ScreenToWorldPoint(Input.mousePosition);
 
             if (previewObject != null)
-            {
-                previewObject.transform.position = mouseWorld;
-
-                // Skip placement on the first frame after selecting from palette
-                if (justSelected)
-                {
-                    justSelected = false;
-                    return;
-                }
-
-                // Place on left click (not over UI)
-                if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
-                {
-                    PlaceObject(mouseWorld);
-                    // Keep the same sprite selected so you can place multiple
-                    // If you want to stop after one placement, call CancelPlacement() instead
-                }
-
-                // Cancel with right click or Escape
-                if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
-                {
-                    CancelPlacement();
-                }
-            }
+                HandlePlacementMode(mouseWorld);
             else
+                HandleSelectionMode(mouseWorld);
+        }
+
+        // Placement
+
+        void HandlePlacementMode(Vector2 mouseWorld)
+        {
+            previewObject.transform.position = mouseWorld;
+
+            if (justSelected)
             {
-                // Select object on left click (not over UI)
-                if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
-                {
-                    TrySelectObject(mouseWorld);
-                    if (selectedObject != null)
-                    {
-                        isDragging = true;
-                        dragOffset = (Vector2)selectedObject.transform.position - mouseWorld;
-                    }
-                }
+                justSelected = false;
+                return;
+            }
 
-                // Drag selected object
-                if (isDragging && selectedObject != null)
-                {
-                    float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
-                    float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
-                    Vector2 center = cam.transform.position;
-                    Vector2 newPos = mouseWorld + dragOffset;
-                    newPos.x = Mathf.Clamp(newPos.x, center.x - halfW, center.x + halfW);
-                    newPos.y = Mathf.Clamp(newPos.y, center.y - halfH, center.y + halfH);
-                    selectedObject.transform.position = newPos;
+            if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
+                PlaceObject(mouseWorld);
 
-                    if (Input.GetMouseButtonUp(0))
-                    {
-                        isDragging = false;
-                    }
-                }
+            if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+                CancelPlacement();
+        }
 
-                // Deselect with right click
-                if (Input.GetMouseButtonDown(1) && selectedObject != null)
-                {
-                    SetObjectHighlight(selectedObject, false);
-                    selectedObject = null;
-                    isDragging = false;
-                }
+        // Selection
 
-                // Delete with Delete key
-                if (selectedObject != null && Input.GetKeyDown(KeyCode.Delete))
-                {
-                    placedObjects.Remove(selectedObject);
-                    Destroy(selectedObject);
-                    selectedObject = null;
-                    isDragging = false;
-                }
+        void HandleSelectionMode(Vector2 mouseWorld)
+        {
+            // Left click: select + start drag
+            if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
+            {
+                // Debug: show all colliders in range
+                Collider2D[] hits = Physics2D.OverlapCircleAll(mouseWorld, 0.15f);
+                Debug.Log($"Clicks at {mouseWorld}, found {hits.Length} colliders");
+                foreach (var h in hits)
+                    Debug.Log($"  - {h.gameObject.name}, has PlaceableObject: {h.GetComponent<PlaceableObject>() != null}");
 
-                // Rotate with R key
-                if (selectedObject != null && Input.GetKeyDown(KeyCode.R))
-                {
-                    selectedObject.transform.Rotate(0, 0, 90);
-                }
-
-                // Flip with F key
-                if (selectedObject != null && Input.GetKeyDown(KeyCode.F))
-                {
-                    Vector3 scale = selectedObject.transform.localScale;
-                    scale.x *= -1;
-                    selectedObject.transform.localScale = scale;
-                }
-
-                // Scale with mouse wheel
+                TrySelectObject(mouseWorld);
                 if (selectedObject != null)
                 {
-                    float scroll = Input.GetAxis("Mouse ScrollWheel");
-                    if (scroll != 0f)
-                    {
-                        if (cameraController != null) cameraController.blockScroll = true;
-
-                        float scaleDelta = scroll * 0.5f;
-                        Vector3 s = selectedObject.transform.localScale;
-                        float newX = Mathf.Clamp(Mathf.Abs(s.x) + scaleDelta, 0.05f, 0.5f) * Mathf.Sign(s.x);
-                        float newY = Mathf.Clamp(s.y + scaleDelta, 0.05f, 0.5f);
-                        selectedObject.transform.localScale = new Vector3(newX, newY, 1f);
-                    }
-                    else
-                    {
-                        if (cameraController != null) cameraController.blockScroll = false;
-                    }
-                }
-                else
-                {
-                    if (cameraController != null) cameraController.blockScroll = false;
+                    isDragging = true;
+                    dragOffset = (Vector2)selectedObject.transform.position - mouseWorld;
                 }
             }
+
+            // Drag
+            if (isDragging && selectedObject != null)
+            {
+                selectedObject.transform.position = ClampToBoundary(mouseWorld + dragOffset);
+
+                if (Input.GetMouseButtonUp(0))
+                    isDragging = false;
+            }
+
+            // Right click: deselect
+            if (Input.GetMouseButtonDown(1) && selectedObject != null)
+                Deselect();
+
+            if (selectedObject == null) return;
+
+            // Delete
+            if (Input.GetKeyDown(KeyCode.Delete))
+            {
+                placedObjects.Remove(selectedObject);
+                Destroy(selectedObject);
+                selectedObject = null;
+                isDragging = false;
+                return;
+            }
+
+            // Rotate
+            if (Input.GetKeyDown(KeyCode.R))
+                selectedObject.transform.Rotate(0, 0, 90);
+
+            // Flip
+            if (Input.GetKeyDown(KeyCode.F))
+            {
+                Vector3 s = selectedObject.transform.localScale;
+                s.x *= -1;
+                selectedObject.transform.localScale = s;
+            }
+
+            // Scroll to scale
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (cameraController != null)
+                cameraController.blockScroll = scroll != 0f;
+
+            if (scroll != 0f)
+            {
+                Vector3 s = selectedObject.transform.localScale;
+                float delta = scroll * scrollSensitivity;
+                float newX = Mathf.Clamp(Mathf.Abs(s.x) + delta, minScale, maxScale) * Mathf.Sign(s.x);
+                float newY = Mathf.Clamp(s.y + delta, minScale, maxScale);
+                selectedObject.transform.localScale = new Vector3(newX, newY, 1f);
+            }
         }
+
+        bool IsPointerOverUI()
+        {
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        }
+
+        // Object
 
         public void SelectSprite(Sprite sprite, int prefabId)
         {
             CancelPlacement();
             selectedSprite = sprite;
-            selectedPrefabId = prefabId; // Add this field at the top: private int selectedPrefabId;
+            selectedPrefabId = prefabId;
 
             previewObject = new GameObject("Preview_" + sprite.name);
             SpriteRenderer sr = previewObject.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;
-            sr.color = new Color(1, 1, 1, 0.5f);
+            sr.color = new Color(1f, 1f, 1f, 0.5f);
             sr.sortingOrder = 10;
-            previewObject.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
+            previewObject.transform.localScale = new Vector3(defaultScale, defaultScale, 1f);
 
             justSelected = true;
         }
 
         void PlaceObject(Vector2 position)
         {
-            float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
-            float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
-            Vector2 center = cam.transform.position;
-            position.x = Mathf.Clamp(position.x, center.x - halfW, center.x + halfW);
-            position.y = Mathf.Clamp(position.y, center.y - halfH, center.y + halfH);
+            position = ClampToBoundary(position);
 
-            Sprite spriteToBePlaced = selectedSprite;
-
-            GameObject obj = new GameObject(spriteToBePlaced.name);
+            GameObject obj = new GameObject(selectedSprite.name);
             obj.transform.position = position;
             obj.transform.rotation = previewObject.transform.rotation;
-            obj.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
+            obj.transform.localScale = new Vector3(defaultScale, defaultScale, 1f);
 
             SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
-            sr.sprite = spriteToBePlaced;
+            sr.sprite = selectedSprite;
             sr.sortingOrder = 1;
 
+            // Size collider to match sprite so clicks always register
             obj.AddComponent<BoxCollider2D>();
 
             PlaceableObject po = obj.AddComponent<PlaceableObject>();
-            po.objectId = spriteToBePlaced.name;
+            po.objectId = selectedSprite.name;
             po.prefabId = selectedPrefabId;
 
             placedObjects.Add(obj);
@@ -252,26 +204,38 @@ namespace Assets.Code.Scripts.EnvironmentEditor
 
         void TrySelectObject(Vector2 position)
         {
-            if (selectedObject != null)
-                SetObjectHighlight(selectedObject, false);
+            Deselect();
 
-            Collider2D hit = Physics2D.OverlapCircle(position, 0.05f);
-            if (hit != null && hit.GetComponent<PlaceableObject>() != null)
+            Collider2D[] hits = Physics2D.OverlapCircleAll(position, 0.15f);
+            GameObject best = null;
+            int bestOrder = int.MinValue;
+
+            foreach (Collider2D hit in hits)
             {
-                selectedObject = hit.gameObject;
-                SetObjectHighlight(selectedObject, true);
+                if (hit.GetComponent<PlaceableObject>() == null) continue;
+                SpriteRenderer sr = hit.GetComponent<SpriteRenderer>();
+                int order = sr != null ? sr.sortingOrder : 0;
+                if (order > bestOrder)
+                {
+                    bestOrder = order;
+                    best = hit.gameObject;
+                }
             }
-            else
+
+            if (best != null)
             {
-                selectedObject = null;
+                selectedObject = best;
+                SetHighlight(selectedObject, true);
             }
         }
 
-        void SetObjectHighlight(GameObject obj, bool highlight)
+        void Deselect()
         {
-            SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
-            if (sr != null)
-                sr.color = highlight ? new Color(0.7f, 1f, 0.7f, 1f) : Color.white;
+            if (selectedObject != null)
+                SetHighlight(selectedObject, false);
+            selectedObject = null;
+            isDragging = false;
+            if (cameraController != null) cameraController.blockScroll = false;
         }
 
         void CancelPlacement()
@@ -282,56 +246,51 @@ namespace Assets.Code.Scripts.EnvironmentEditor
             selectedSprite = null;
         }
 
-        bool IsPointerOverUI()
+        void SetHighlight(GameObject obj, bool on)
         {
-            return UnityEngine.EventSystems.EventSystem.current != null &&
-                   UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+            SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
+            if (sr != null)
+                sr.color = on ? new Color(0.7f, 1f, 0.7f, 1f) : Color.white;
         }
 
-        IEnumerator SetupBoundaryNextFrame()
+        // Boundary
+
+        Vector2 ClampToBoundary(Vector2 pos)
         {
-            yield return null; // Wait one frame so camera is fully initialized
-            SetupBoundary();
+            Vector2 center = cam.transform.position;
+            float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
+            float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
+            pos.x = Mathf.Clamp(pos.x, center.x - halfW, center.x + halfW);
+            pos.y = Mathf.Clamp(pos.y, center.y - halfH, center.y + halfH);
+            return pos;
         }
 
         void SetupBoundary()
         {
             float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
             float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
-            Vector2 center = cam.transform.position;
+            Vector2 c = cam.transform.position;
 
-            CreateBorderLine("Border_Bottom",
-                new Vector2(center.x - halfW, center.y - halfH),
-                new Vector2(center.x + halfW, center.y - halfH));
-            CreateBorderLine("Border_Top",
-                new Vector2(center.x - halfW, center.y + halfH),
-                new Vector2(center.x + halfW, center.y + halfH));
-            CreateBorderLine("Border_Left",
-                new Vector2(center.x - halfW, center.y - halfH),
-                new Vector2(center.x - halfW, center.y + halfH));
-            CreateBorderLine("Border_Right",
-                new Vector2(center.x + halfW, center.y - halfH),
-                new Vector2(center.x + halfW, center.y + halfH));
+            CreateBorderLine("Border_Bottom", new Vector2(c.x - halfW, c.y - halfH), new Vector2(c.x + halfW, c.y - halfH));
+            CreateBorderLine("Border_Top", new Vector2(c.x - halfW, c.y + halfH), new Vector2(c.x + halfW, c.y + halfH));
+            CreateBorderLine("Border_Left", new Vector2(c.x - halfW, c.y - halfH), new Vector2(c.x - halfW, c.y + halfH));
+            CreateBorderLine("Border_Right", new Vector2(c.x + halfW, c.y - halfH), new Vector2(c.x + halfW, c.y + halfH));
         }
 
         void CreateBorderLine(string name, Vector2 start, Vector2 end)
         {
             GameObject obj = new GameObject(name);
-
-            // Use a thin quad scaled to form a line instead of LineRenderer
             SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
             sr.sprite = CreateWhiteSprite();
             sr.color = Color.red;
             sr.sortingOrder = 99;
 
-            // Position at midpoint between start and end
             Vector2 mid = (start + end) / 2f;
             obj.transform.position = new Vector3(mid.x, mid.y, 0f);
 
-            // Scale to match the line length and a fixed thickness
             float length = Vector2.Distance(start, end);
-            bool isHorizontal = Mathf.Abs(end.y - start.y) < 0.01f;
-            obj.transform.localScale = isHorizontal
+            bool horizontal = Mathf.Abs(end.y - start.y) < 0.01f;
+            obj.transform.localScale = horizontal
                 ? new Vector3(length, 0.02f, 1f)
                 : new Vector3(0.02f, length, 1f);
         }
@@ -344,42 +303,98 @@ namespace Assets.Code.Scripts.EnvironmentEditor
             return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
         }
 
-        // Unity world position → environment coordinates (0 to MaxLength/MaxHeight)
+        // Coordinate conversion
+
         Vector2 WorldToEnvironment(Vector2 worldPos)
         {
             Vector2 center = cam.transform.position;
             float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
             float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
-
-            float envX = (worldPos.x - (center.x - halfW)) / (halfW * 2f) * currentEnvironment.MaxLength;
-            float envY = (worldPos.y - (center.y - halfH)) / (halfH * 2f) * currentEnvironment.MaxHeight;
-
-            return new Vector2(envX, envY);
+            return new Vector2(
+                (worldPos.x - (center.x - halfW)) / (halfW * 2f) * currentEnvironment.MaxLength,
+                (worldPos.y - (center.y - halfH)) / (halfH * 2f) * currentEnvironment.MaxHeight
+            );
         }
 
-        // Environment coordinates → Unity world position
         Vector2 EnvironmentToWorld(Vector2 envPos)
         {
             Vector2 center = cam.transform.position;
             float halfW = (currentEnvironment.MaxLength * worldScale) / 2f;
             float halfH = (currentEnvironment.MaxHeight * worldScale) / 2f;
+            return new Vector2(
+                (envPos.x / currentEnvironment.MaxLength) * (halfW * 2f) + (center.x - halfW),
+                (envPos.y / currentEnvironment.MaxHeight) * (halfH * 2f) + (center.y - halfH)
+            );
+        }
 
-            float worldX = (envPos.x / currentEnvironment.MaxLength) * (halfW * 2f) + (center.x - halfW);
-            float worldY = (envPos.y / currentEnvironment.MaxHeight) * (halfH * 2f) + (center.y - halfH);
+        // Init
 
-            return new Vector2(worldX, worldY);
+        IEnumerator InitializeAsync()
+        {
+            yield return null;
+            yield return null;
+
+            SetupBoundary();
+
+            var loadTask = saveLoad.LoadEnvironmentAsync(currentEnvironment.Id);
+            yield return new WaitUntil(() => loadTask.IsCompleted);
+
+            foreach (var dto in loadTask.Result)
+            {
+                Sprite sprite = palette.GetSpriteById(dto.PrefabId);
+                if (sprite == null) continue;
+
+                GameObject obj = new GameObject(sprite.name);
+                obj.transform.position = EnvironmentToWorld(new Vector2(dto.PositionX, dto.PositionY));
+                obj.transform.localScale = new Vector3(dto.ScaleX, dto.ScaleY, 1f);
+                obj.transform.eulerAngles = new Vector3(0f, 0f, dto.RotationZ);
+
+                SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+                sr.sprite = sprite;
+                sr.sortingOrder = dto.SortingLayer;
+
+                obj.AddComponent<BoxCollider2D>();
+
+                PlaceableObject po = obj.AddComponent<PlaceableObject>();
+                po.objectId = sprite.name;
+                po.prefabId = dto.PrefabId;
+
+                placedObjects.Add(obj);
+            }
+
+            yield return null;
+            Debug.Log($"{loadTask.Result.Count} objecten geladen.");
+        }
+
+        // UI buttons
+
+        public void RotateSelected() => selectedObject?.transform.Rotate(0, 0, 90);
+
+        public void FlipSelected()
+        {
+            if (selectedObject == null) return;
+            Vector3 s = selectedObject.transform.localScale;
+            s.x *= -1;
+            selectedObject.transform.localScale = s;
+        }
+
+        public void DeleteSelected()
+        {
+            if (selectedObject == null) return;
+            placedObjects.Remove(selectedObject);
+            Destroy(selectedObject);
+            selectedObject = null;
+            isDragging = false;
         }
 
         public void SaveAll()
         {
-            // Convert all placed object positions to environment coordinates before saving
             foreach (GameObject obj in placedObjects)
             {
                 var po = obj.GetComponent<PlaceableObject>();
                 if (po == null) continue;
                 po.envPosition = WorldToEnvironment(obj.transform.position);
             }
-
             saveLoad.SaveEnvironment(placedObjects, currentEnvironment.Id, this);
         }
 
@@ -389,34 +404,7 @@ namespace Assets.Code.Scripts.EnvironmentEditor
             PlayerPrefs.DeleteKey("Environment_Name");
             PlayerPrefs.DeleteKey("Environment_MaxHeight");
             PlayerPrefs.DeleteKey("Environment_MaxLength");
-
             await SceneManager.LoadSceneAsync("EnvironmentSelectorScene", LoadSceneMode.Single);
-        }
-
-        public void RotateSelected()
-        {
-            if (selectedObject)
-            {
-                selectedObject.transform.Rotate(0, 0, 90);
-            }
-        }
-        public void FlipSelected()
-        {
-            if (selectedObject)
-            {
-                var s = selectedObject.transform.localScale; s.x *= -1;
-                selectedObject.transform.localScale = s;
-            }
-        }
-
-        public void DeleteSelected()
-        {
-            if (selectedObject)
-            {
-                placedObjects.Remove(selectedObject);
-                Destroy(selectedObject);
-                selectedObject = null;
-            }
         }
 
         public List<GameObject> GetPlacedObjects() => placedObjects;
