@@ -2,25 +2,38 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-public class ObjectPalette : MonoBehaviour
+namespace Assets.Code.Scripts.EnvironmentEditor
 {
-    public List<Sprite> availableSprites;
-    public GameObject paletteButtonPrefab;
-    public Transform paletteContainer;
-    public EnvironmentEditorController editorController;
-
-    void Start()
+    public class ObjectPalette : MonoBehaviour
     {
-        foreach (Sprite sprite in availableSprites)
-        {
-            GameObject btn = Instantiate(paletteButtonPrefab, paletteContainer);
-            btn.GetComponent<Image>().sprite = sprite;
+        public List<Sprite> availableSprites;
+        public GameObject paletteButtonPrefab;
+        public Transform paletteContainer;
+        public EnvironmentEditorController editorController;
 
-            Sprite captured = sprite;
-            btn.GetComponent<Button>().onClick.AddListener(() =>
+        void Start()
+        {
+            for (int i = 0; i < availableSprites.Count; i++)
             {
-                editorController.SelectSprite(captured);
-            });
+                Sprite captured = availableSprites[i];
+                int prefabId = i; // Index = PrefabId
+
+                GameObject btn = Instantiate(paletteButtonPrefab, paletteContainer);
+                btn.GetComponent<Image>().sprite = captured;
+                btn.GetComponent<Button>().onClick.AddListener(() =>
+                {
+                    editorController.SelectSprite(captured, prefabId);
+                });
+            }
+        }
+
+        public Sprite GetSpriteById(int prefabId)
+        {
+            if (prefabId >= 0 && prefabId < availableSprites.Count)
+                return availableSprites[prefabId];
+
+            Debug.LogWarning($"PrefabId {prefabId} niet gevonden in palette.");
+            return null;
         }
     }
 }
