@@ -1,16 +1,16 @@
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Threading.Tasks;
-using System;
 using Assets.Code.Services;
 using System.Net.Http;
+using Assets.Code.Models;
 
 public class AuthService : AbstractService
 {
-    public async Task<bool> RegisterAsync(string email, string password)
+    public async Task<ApiResult> RegisterAsync(string email, string password)
     {
         string url = $"{BaseUrl}/account/register";
-        var requestData = new RegisterRequest { email = email, password = password };
+        var requestData = new RegisterRequestDto { Email = email, Password = password };
         var json = JsonUtility.ToJson(requestData);
 
         using var request = CreateRequest(url, HttpMethod.Post, json);
@@ -19,20 +19,18 @@ public class AuthService : AbstractService
 
         if (request.result == UnityWebRequest.Result.Success)
         {
-            Debug.Log("Registration successful");
-            return true;
+            return ApiResult.Success();
         }
         else
         {
-            Debug.LogError($"Registration failed: {request.error} - {request.downloadHandler.text}");
-            return false;
+            return ApiResult.Fail($"Registration failed: {request.error} - {request.downloadHandler.text}");
         }
     }
 
-    public async Task<bool> LoginAsync(string email, string password)
+    public async Task<ApiResult> LoginAsync(string email, string password)
     {
         string url = $"{BaseUrl}/account/login?useCookies=false&useSessionCookies=false";
-        var requestData = new LoginRequest { email = email, password = password };
+        var requestData = new LoginRequestDto { Email = email, Password = password };
         var json = JsonUtility.ToJson(requestData);
 
         using var request = CreateRequest(url, HttpMethod.Post, json);
@@ -41,39 +39,16 @@ public class AuthService : AbstractService
 
         if (request.result == UnityWebRequest.Result.Success)
         {
-            var response = JsonUtility.FromJson<AccessTokenResponse>(request.downloadHandler.text);
-            Debug.Log($"Login successful. Token: {response.accessToken}");
-            PlayerPrefs.SetString("AccessToken", response.accessToken);
+            var response = JsonUtility.FromJson<AccessTokenResponseDto>(request.downloadHandler.text);
+            Debug.Log($"Login successful. Token: {response.AccessToken}");
+            PlayerPrefs.SetString("AccessToken", response.AccessToken);
             PlayerPrefs.Save();
-            return true;
+
+            return ApiResult.Success();
         }
         else
         {
-            Debug.LogError($"Login failed: {request.error} - {request.downloadHandler.text}");
-            return false;
+            return ApiResult.Fail($"Login failed: {request.error} - {request.downloadHandler.text}");
         }
-    }
-
-    [Serializable]
-    private class RegisterRequest
-    {
-        public string email;
-        public string password;
-    }
-
-    [Serializable]
-    private class LoginRequest
-    {
-        public string email;
-        public string password;
-    }
-
-    [Serializable]
-    private class AccessTokenResponse
-    {
-        public string tokenType;
-        public string accessToken;
-        public long expiresIn;
-        public string refreshToken;
     }
 }

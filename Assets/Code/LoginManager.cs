@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
+using Assets.Code.Models;
 
 public class LoginManager : MonoBehaviour
 {
@@ -62,9 +63,9 @@ public class LoginManager : MonoBehaviour
         }
 
         ShowFeedback($"Logging in as {username}...");
-        bool success = await authService.LoginAsync(username, password);
+        ApiResult result = await authService.LoginAsync(username, password);
         
-        if (success)
+        if (result.Ok)
         {
             ShowFeedback("Login successful!");
 
@@ -74,6 +75,7 @@ public class LoginManager : MonoBehaviour
         else
         {
             ShowFeedback("Login failed. Check credentials.");
+            Debug.LogError($"{result.Error}");
         }
     }
 
@@ -96,9 +98,9 @@ public class LoginManager : MonoBehaviour
         }
 
         ShowFeedback($"Registering user {username}...");
-        bool success = await authService.RegisterAsync(username, password);
+        ApiResult result = await authService.RegisterAsync(username, password);
 
-        if (success)
+        if (result.Ok)
         {
             ShowFeedback("Registration successful! Please login.");
             ShowLogin();
@@ -106,6 +108,7 @@ public class LoginManager : MonoBehaviour
         else
         {
             ShowFeedback("Registration failed.");
+            Debug.LogError($"{result.Error}");
         }
     }
 
