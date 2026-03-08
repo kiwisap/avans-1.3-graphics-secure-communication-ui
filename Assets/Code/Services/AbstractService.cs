@@ -9,8 +9,7 @@ namespace Assets.Code.Services
 	{
         private static AbstractService Instance { get; set; }
 
-        //protected const string BaseUrl = "https://avansict2247983.azurewebsites.net";
-        protected const string BaseUrl = "https://localhost:7222";
+        protected const string BaseUrl = "https://avansict2247983.azurewebsites.net";
 
         private void Awake()
         {
