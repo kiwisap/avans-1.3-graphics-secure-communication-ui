@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: d4cecacdc34253c45b249b8a36d87b00
+guid: 1ca7b918dd0e0764498dd0b4efb76790
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 4120955195336003847
-    second: Mario_0
+      213: -9096209154393287108
+    second: Cartoon galaxy background Images - Free Download on Freepik_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -51,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 800
+  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Mario_0
+      name: Cartoon galaxy background Images - Free Download on Freepik_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1200
-        height: 1600
+        width: 626
+        height: 417
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 7019d499ae2903930800000000000000
-      internalID: 4120955195336003847
+      spriteID: c365bb5c7f5c3c180800000000000000
+      internalID: -9096209154393287108
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Mario_0: 4120955195336003847
+      Cartoon galaxy background Images - Free Download on Freepik_0: -9096209154393287108
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

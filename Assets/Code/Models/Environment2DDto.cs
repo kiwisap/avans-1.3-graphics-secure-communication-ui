@@ -5,12 +5,12 @@ namespace Assets.Code.Models
     [Serializable]
     public class Environment2DDto
     {
-        public int id { get; set; }
+        public int Id { get; set; }
 
-        public string name { get; set; }
+        public string Name { get; set; }
 
-        public int maxHeight { get; set; }
+        public int MaxHeight { get; set; }
 
-        public int maxLength { get; set; }
+        public int MaxLength { get; set; }
     }
 }

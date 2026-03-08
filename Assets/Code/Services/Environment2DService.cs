@@ -1,8 +1,8 @@
 using Assets.Code.Models;
+using Newtonsoft.Json;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using UnityEngine;
 using UnityEngine.Networking;
 
 namespace Assets.Code.Services
@@ -24,8 +24,8 @@ namespace Assets.Code.Services
 
             try
             {
-                var response = JsonUtility.FromJson<Environment2DListResponse>("{\"items\":" + json + "}");
-                var items = response?.items ?? Array.Empty<Environment2DDto>();
+                var response = JsonConvert.DeserializeObject<Environment2DListResponse>("{\"items\":" + json + "}");
+                var items = response?.Items ?? Array.Empty<Environment2DDto>();
                 return ApiResult<Environment2DDto[]>.Success(items);
             }
             catch (Exception e)
@@ -37,7 +37,7 @@ namespace Assets.Code.Services
         public async Task<ApiResult> CreateEnvironmentAsync(Environment2DDto body)
         {
             string url = $"{BaseUrl}/api/environments";
-            var json = JsonUtility.ToJson(body);
+            var json = JsonConvert.SerializeObject(body);
             var request = CreateRequest(url, HttpMethod.Post, json);
 
             var operation = request.SendWebRequest();

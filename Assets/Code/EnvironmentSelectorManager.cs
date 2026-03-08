@@ -81,7 +81,7 @@ namespace Assets.Code
             feedbackText.text = "Terug naar login";
 
             // Unload current scene and load login scene
-            SceneManager.LoadScene("LoginScene", LoadSceneMode.Single);
+            SceneManager.LoadScene("AuthScene", LoadSceneMode.Single);
         }
 
         public void ShowCreateEnvironmentModal()
@@ -122,9 +122,9 @@ namespace Assets.Code
             {
                 var item = Instantiate(environmentItemTemplate, environmentListContent);
                 item.gameObject.SetActive(true);
-                item.gameObject.name = $"EnvironmentItem_{env.id}";
+                item.gameObject.name = $"EnvironmentItem_{env.Id}";
 
-                item.environmentNameText.text = $"{env.name} ({env.maxLength}x{env.maxHeight})";
+                item.environmentNameText.text = $"{env.Name} ({env.MaxLength}x{env.MaxHeight})";
 
                 item.openButton.onClick.RemoveAllListeners();
                 item.openButton.onClick.AddListener(() => OpenEnvironment(env));
@@ -143,13 +143,13 @@ namespace Assets.Code
             }
 
             Instantiate(environmentPrefabToLoad);
-            feedbackText.text = $"Geopend: {env.name}";
+            feedbackText.text = $"Geopend: {env.Name}";
         }
 
         private void AskDeleteEnvironment(Environment2DDto env)
         {
-            _pendingDeleteEnvironmentId = env.id;
-            confirmDeleteModal.bodyText.text = $"Weet je zeker dat je '{env.name}' wilt verwijderen?";
+            _pendingDeleteEnvironmentId = env.Id;
+            confirmDeleteModal.bodyText.text = $"Weet je zeker dat je '{env.Name}' wilt verwijderen?";
             confirmDeleteModal.Show();
         }
 
@@ -190,7 +190,7 @@ namespace Assets.Code
             createEnvironmentModal.Hide();
             feedbackText.text = "Environment aanmaken...";
 
-            var req = new Environment2DDto { name = name, maxLength = width, maxHeight = height };
+            var req = new Environment2DDto { Name = name, MaxLength = width, MaxHeight = height };
 
             var res = await service.CreateEnvironmentAsync(req);
             if (!res.Ok)
