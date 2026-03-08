@@ -17,11 +17,6 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float zoomSpeed = 0.15f;
     [SerializeField] private float minZoom = 3f;
 
-    [Header("Edge Scrolling")]
-    [SerializeField] private bool enableEdgeScroll = true;
-    [SerializeField] private float edgeScrollSpeed = 10f;
-    [SerializeField] private float edgeSize = 20f;
-
     [Header("Bounds")]
     [SerializeField] private GameObject background;
 
@@ -30,6 +25,8 @@ public class CameraController : MonoBehaviour
 
     private Camera _cam;
     private BoxCollider2D _backgroundCollider;
+
+    public bool blockScroll = false;
 
     private Vector2 _lastPointerPosition;
     private bool _wasDraggingLastFrame;
@@ -74,8 +71,12 @@ public class CameraController : MonoBehaviour
 
     private void Update()
     {
+        if (blockScroll)
+        {
+            return;
+        }
+
         HandleKeyboardMovement();
-        HandleEdgeScroll();
         HandleMouseDrag();
         HandleZoom();
         ClampToBackground();
@@ -134,30 +135,6 @@ public class CameraController : MonoBehaviour
         Vector3 moveDirection = new Vector3(input.x, input.y, 0f).normalized;
 
         transform.position += moveDirection * moveSpeed * Time.deltaTime;
-    }
-
-    private void HandleEdgeScroll()
-    {
-        if (!enableEdgeScroll || Mouse.current == null)
-        {
-            return;
-        }
-
-        Vector3 edgeMove = Vector3.zero;
-        Vector2 mousePos = Mouse.current.position.ReadValue();
-
-        if (mousePos.x <= edgeSize)
-            edgeMove.x -= 1f;
-        else if (mousePos.x >= Screen.width - edgeSize)
-            edgeMove.x += 1f;
-
-        if (mousePos.y <= edgeSize)
-            edgeMove.y -= 1f;
-        else if (mousePos.y >= Screen.height - edgeSize)
-            edgeMove.y += 1f;
-
-        edgeMove = edgeMove.normalized;
-        transform.position += edgeMove * edgeScrollSpeed * Time.deltaTime;
     }
 
     private void HandleMouseDrag()

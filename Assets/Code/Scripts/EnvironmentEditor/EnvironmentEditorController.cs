@@ -3,21 +3,23 @@ using System.Collections.Generic;
 
 public class EnvironmentEditorController : MonoBehaviour
 {
-    [Header("Settings")]
-    public float gridSize = 1f;
-    public bool snapToGrid = true;
+    [Header("Camera")]
+    public Camera cam;
+    private CameraController cameraController;
 
     private Sprite selectedSprite;
     private GameObject previewObject;
     private List<GameObject> placedObjects = new List<GameObject>();
     private GameObject selectedObject;
 
-    private Camera cam;
-    private bool justSelected = false; // Prevents placing on the same frame you click the palette
+    private bool justSelected = false;
+    private bool isDragging = false;
+    private Vector2 dragOffset;
 
     void Start()
     {
         cam = Camera.main;
+        cameraController = cam.GetComponent<CameraController>();
     }
 
     void Update()
@@ -26,8 +28,7 @@ public class EnvironmentEditorController : MonoBehaviour
 
         if (previewObject != null)
         {
-            Vector2 snapped = snapToGrid ? SnapToGrid(mouseWorld) : mouseWorld;
-            previewObject.transform.position = snapped;
+            previewObject.transform.position = mouseWorld;
 
             // Skip placement on the first frame after selecting from palette
             if (justSelected)
@@ -39,7 +40,7 @@ public class EnvironmentEditorController : MonoBehaviour
             // Place on left click (not over UI)
             if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
             {
-                PlaceObject(snapped);
+                PlaceObject(mouseWorld);
                 // Keep the same sprite selected so you can place multiple
                 // If you want to stop after one placement, call CancelPlacement() instead
             }
@@ -52,23 +53,52 @@ public class EnvironmentEditorController : MonoBehaviour
         }
         else
         {
+            // Select object on left click (not over UI)
             if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
             {
                 TrySelectObject(mouseWorld);
+                if (selectedObject != null)
+                {
+                    isDragging = true;
+                    dragOffset = (Vector2)selectedObject.transform.position - mouseWorld;
+                }
             }
 
+            // Drag selected object
+            if (isDragging && selectedObject != null)
+            {
+                selectedObject.transform.position = mouseWorld + dragOffset;
+
+                if (Input.GetMouseButtonUp(0))
+                {
+                    isDragging = false;
+                }
+            }
+
+            // Deselect with right click
+            if (Input.GetMouseButtonDown(1) && selectedObject != null)
+            {
+                SetObjectHighlight(selectedObject, false);
+                selectedObject = null;
+                isDragging = false;
+            }
+
+            // Delete with Delete key
             if (selectedObject != null && Input.GetKeyDown(KeyCode.Delete))
             {
                 placedObjects.Remove(selectedObject);
                 Destroy(selectedObject);
                 selectedObject = null;
+                isDragging = false;
             }
 
+            // Rotate with R key
             if (selectedObject != null && Input.GetKeyDown(KeyCode.R))
             {
                 selectedObject.transform.Rotate(0, 0, 90);
             }
 
+            // Flip with F key
             if (selectedObject != null && Input.GetKeyDown(KeyCode.F))
             {
                 Vector3 scale = selectedObject.transform.localScale;
@@ -76,16 +106,16 @@ public class EnvironmentEditorController : MonoBehaviour
                 selectedObject.transform.localScale = scale;
             }
 
-            // Scroll to scale selected object
+            // Scale with mouse wheel
             if (selectedObject != null)
             {
                 float scroll = Input.GetAxis("Mouse ScrollWheel");
                 if (scroll != 0f)
                 {
-                    float scaleDelta = scroll * 0.5f; // Adjust 0.5f to control scroll sensitivity
+                    float scaleDelta = scroll * 0.5f;
                     Vector3 s = selectedObject.transform.localScale;
-                    float newX = Mathf.Clamp(Mathf.Abs(s.x) + scaleDelta, 0.05f, 5f) * Mathf.Sign(s.x);
-                    float newY = Mathf.Clamp(s.y + scaleDelta, 0.05f, 5f);
+                    float newX = Mathf.Clamp(Mathf.Abs(s.x) + scaleDelta, 0.05f, 0.5f) * Mathf.Sign(s.x);
+                    float newY = Mathf.Clamp(s.y + scaleDelta, 0.05f, 0.5f);
                     selectedObject.transform.localScale = new Vector3(newX, newY, 1f);
                 }
             }
@@ -102,7 +132,7 @@ public class EnvironmentEditorController : MonoBehaviour
         sr.sprite = sprite;
         sr.color = new Color(1, 1, 1, 0.5f);
         sr.sortingOrder = 10;
-        previewObject.transform.localScale = new Vector3(0.3f, 0.3f, 1f); // Match default size
+        previewObject.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
 
         justSelected = true;
     }
@@ -114,7 +144,7 @@ public class EnvironmentEditorController : MonoBehaviour
         GameObject obj = new GameObject(spriteToBePlaced.name);
         obj.transform.position = position;
         obj.transform.rotation = previewObject.transform.rotation;
-        obj.transform.localScale = new Vector3(0.3f, 0.3f, 1f); // Small default size
+        obj.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
 
         SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
         sr.sprite = spriteToBePlaced;
@@ -158,13 +188,6 @@ public class EnvironmentEditorController : MonoBehaviour
             Destroy(previewObject);
         previewObject = null;
         selectedSprite = null;
-    }
-
-    Vector2 SnapToGrid(Vector2 pos)
-    {
-        float x = Mathf.Round(pos.x / gridSize) * gridSize;
-        float y = Mathf.Round(pos.y / gridSize) * gridSize;
-        return new Vector2(x, y);
     }
 
     bool IsPointerOverUI()

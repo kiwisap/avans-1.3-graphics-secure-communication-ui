@@ -630,8 +630,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b150096068931d49a228419f9f2ea00, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldEditorController
-  gridSize: 1
-  snapToGrid: 1
+  cam: {fileID: 0}
 --- !u!4 &369710506
 Transform:
   m_ObjectHideFlags: 0
@@ -1705,13 +1704,11 @@ MonoBehaviour:
   dragAction: {fileID: 3225172959477518571, guid: b74e2f88c8e39cd4888ba7219094091e, type: 3}
   pointerPositionAction: {fileID: 614334885482731274, guid: b74e2f88c8e39cd4888ba7219094091e, type: 3}
   zoomAction: {fileID: 3264064485227373552, guid: b74e2f88c8e39cd4888ba7219094091e, type: 3}
-  zoomSpeed: 0.5
+  zoomSpeed: 2
   minZoom: 0.1
-  enableEdgeScroll: 1
-  edgeScrollSpeed: 10
-  edgeSize: 20
   background: {fileID: 2121321611}
   startupZoomMultiplier: 0.95
+  blockScroll: 0
 --- !u!1 &1259827969
 GameObject:
   m_ObjectHideFlags: 0
