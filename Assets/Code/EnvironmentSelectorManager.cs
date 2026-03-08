@@ -75,7 +75,7 @@ namespace Assets.Code
 
         public void BackToLogin()
         {
-            feedbackText.text = "Terug naar login";
+            feedbackText.text = "Terug naar inloggen";
 
             // Unload current scene and load login scene
             SceneManager.LoadScene("AuthScene", LoadSceneMode.Single);
@@ -198,9 +198,6 @@ namespace Assets.Code
             await RefreshEnvironmentsAsync();
         }
 
-        /// <summary>
-        /// Unity-safe fire-and-forget wrapper (vangt exceptions zodat je geen unobserved task errors krijgt).
-        /// </summary>
         private void RunTask(Func<Task> taskFactory)
         {
             _ = RunTaskInternal(taskFactory);

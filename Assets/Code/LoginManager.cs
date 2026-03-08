@@ -58,23 +58,23 @@ public class LoginManager : MonoBehaviour
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-            ShowFeedback("Please enter username and password.");
+            ShowFeedback("Vul e-mailadres en wachtwoord in.");
             return;
         }
 
-        ShowFeedback($"Logging in as {username}...");
+        ShowFeedback($"Inloggen als {username}...");
         ApiResult result = await authService.LoginAsync(username, password);
         
         if (result.Ok)
         {
-            ShowFeedback("Login successful!");
+            ShowFeedback("Inloggen gelukt!");
 
             // Load environment selector scene
             await SceneManager.LoadSceneAsync("EnvironmentSelectorScene", LoadSceneMode.Single);
         }
         else
         {
-            ShowFeedback("Login failed. Check credentials.");
+            ShowFeedback("Inloggen niet gelukt. Controleer gegevens.");
             Debug.LogError($"{result.Error}");
         }
     }
@@ -87,27 +87,27 @@ public class LoginManager : MonoBehaviour
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-            ShowFeedback("Please fill in all fields.");
+            ShowFeedback("Vul alle velden in.");
             return;
         }
 
         if (password != confirmPassword)
         {
-            ShowFeedback("Passwords do not match.");
+            ShowFeedback("Wachtwoorden komen niet overeen.");
             return;
         }
 
-        ShowFeedback($"Registering user {username}...");
+        ShowFeedback($"Gebruiker {username} registreren...");
         ApiResult result = await authService.RegisterAsync(username, password);
 
         if (result.Ok)
         {
-            ShowFeedback("Registration successful! Please login.");
+            ShowFeedback("Registratie gelukt! Log in");
             ShowLogin();
         }
         else
         {
-            ShowFeedback("Registration failed.");
+            ShowFeedback("Registratie niet gelukt.");
             Debug.LogError($"{result.Error}");
         }
     }
