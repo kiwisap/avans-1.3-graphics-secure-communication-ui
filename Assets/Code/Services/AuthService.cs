@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Assets.Code.Services;
 using System.Net.Http;
 using Assets.Code.Models;
+using Assets.Code.Utils;
 
 public class AuthService : AbstractService
 {
@@ -11,7 +12,7 @@ public class AuthService : AbstractService
     {
         string url = $"{BaseUrl}/account/register";
         var requestData = new RegisterRequestDto { Email = email, Password = password };
-        var json = JsonUtility.ToJson(requestData);
+        var json = JsonUtils.Serialize(requestData);
 
         using var request = CreateRequest(url, HttpMethod.Post, json);
         var operation = request.SendWebRequest();
@@ -31,7 +32,7 @@ public class AuthService : AbstractService
     {
         string url = $"{BaseUrl}/account/login?useCookies=false&useSessionCookies=false";
         var requestData = new LoginRequestDto { Email = email, Password = password };
-        var json = JsonUtility.ToJson(requestData);
+        var json = JsonUtils.Serialize(requestData);
 
         using var request = CreateRequest(url, HttpMethod.Post, json);
         var operation = request.SendWebRequest();
@@ -39,7 +40,7 @@ public class AuthService : AbstractService
 
         if (request.result == UnityWebRequest.Result.Success)
         {
-            var response = JsonUtility.FromJson<AccessTokenResponseDto>(request.downloadHandler.text);
+            var response = JsonUtils.Deserialize<AccessTokenResponseDto>(request.downloadHandler.text);
             Debug.Log($"Login successful. Token: {response.AccessToken}");
             PlayerPrefs.SetString("AccessToken", response.AccessToken);
             PlayerPrefs.Save();

@@ -1,5 +1,5 @@
 using Assets.Code.Models;
-using Newtonsoft.Json;
+using Assets.Code.Utils;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -24,7 +24,7 @@ namespace Assets.Code.Services
 
             try
             {
-                var response = JsonConvert.DeserializeObject<Environment2DListResponse>("{\"items\":" + json + "}");
+                var response = JsonUtils.Deserialize<Environment2DListResponse>("{\"Items\":" + json + "}");
                 var items = response?.Items ?? Array.Empty<Environment2DDto>();
                 return ApiResult<Environment2DDto[]>.Success(items);
             }
@@ -37,7 +37,7 @@ namespace Assets.Code.Services
         public async Task<ApiResult> CreateEnvironmentAsync(Environment2DDto body)
         {
             string url = $"{BaseUrl}/api/environments";
-            var json = JsonConvert.SerializeObject(body);
+            var json = JsonUtils.Serialize(body);
             var request = CreateRequest(url, HttpMethod.Post, json);
 
             var operation = request.SendWebRequest();
